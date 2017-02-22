@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stop tracking</title>
+</head>
+<body>
+    {% if result %}
+    <h3>Stopping successful. {{ user.first_name }} {{ user.last_name }} is no longer under surveillance.</h3>
+    {% else %}
+    <h3>{{ message }}</h3>
+    {% endif %}
+    <br>
+    <a href={% url "users_view" %}>Back to users list</a>
+</body>
+</html>

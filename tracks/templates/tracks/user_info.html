@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User info - {{ user.first_name }} {{ user.last_name }}</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.12/js/jquery.dataTables.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/moment.js/2.13.0/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.3.0/Chart.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.12/css/dataTables.bootstrap.min.css">
+</head>
+<body style="padding-left: 20px; padding-right: 20px">
+    {% if user %}
+        {% if photo %}
+            <div id="user-info-holder" style="overflow: hidden;">
+        <div id="user-photo" style="float:left; padding-right: 10px; padding-top: 30px;">
+            <img src={{ photo }} style="border-radius: 50%;"/>
+        </div>
+        {% endif %}
+        <div id="user-info" style="float:left">
+        <h3>User info - <a href="http://vk.com/id{{ user.uid }}" target="_blank">id{{ user.uid }}</a></h3>
+        <ul>
+            <li>{{ user.first_name }} {{ user.last_name }}</li>
+            <li>Has mobile: {% if user.has_mobile %} Yes {% else %} No {% endif %}</li>
+            <li>Track started: {{ track_started }}</li>
+            <li>Last update: {{ user.last_update }}</li>
+        </ul>
+    </div>
+        </div>
+    {% if track %}
+
+        <div class="container">
+        <ul class="nav nav-tabs nav-justified">
+            <li class="active"><a data-toggle="tab" href="#track-info-timeline">Timeline</a></li>
+            <li><a data-toggle="tab" href="#track-info-table">Table</a></li>
+            <li><a data-toggle="tab" href="#track-stats">Stats</a></li>
+        </ul>
+            <div class="tab-content" style="padding-top: 20px">
+
+            <div id="track-info-timeline" class="tab-pane fade in active">
+            <canvas id="timeline" width='100%' height='30'></canvas>
+        </div>
+
+        <div id="track-info-table" class="tab-pane fade">
+
+        <table class="table table-striped table-bordered">
+            <caption><h3>Track</h3></caption>
+            <thead>
+            <tr><th>Time</th>
+                <th>Online</th>
+            <th>Last seen</th>
+            <th>Platform</th></tr>
+            </thead>
+            <tbody>
+                {% for entry in track %}
+                    <tr>
+                        <td> {{ entry.created_at }} </td>
+                        <td> {{ entry.online }} </td>
+                        <td> {{ entry.last_seen_time }} </td>
+                        <td> {{ entry.get_last_seen_platform_display }} </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+        <div id="track-stats" class="tab-pane fade" style="overflow: hidden">
+            <div style="float: left; width: 50%">
+                <canvas id="mobile-piechart"></canvas>
+            </div>
+            <div style="float: left; width: 50%">
+                <canvas id="online-piechart"></canvas>
+            </div>
+        </div>
+        </div>
+    </div>
+    {% else %}
+        <h4>Track collection is in progress, check later.</h4>
+    {% endif %}
+
+    {% else %}
+        <p>User is not found. <a href={% url "user_start_tracking" given_uid %}>Start tracking</a>?
+    {% endif %}
+
+    <script>
+        function drawTimeline(data) {
+                var ctx = document.getElementById("timeline");
+                // console.log(data);
+                var timeline = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.track.map(function (x,index) {
+
+                                return moment(x.created_at).format("MM/DD/YYYY HH:mm");
+
+                        }),
+                        datasets: [{
+                            label: 'uptime',
+                            data: data.track.map(function (x) {
+                                return x.online ? 1 : 0
+                            }),
+                            backgroundColor: [
+                                '#D1D9E0'
+                            ],
+                            borderColor: [
+                                '#507299'
+                            ],
+                            borderWidth: 1,
+                            steppedLine: true,
+                        }],
+                    },
+                    options: {
+                        legend: {
+                            display: false
+                        },
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function (value, index, values) {
+                                        if (value == 0) {
+                                            return "Offline";
+                                        }
+                                        if (value == 1) {
+                                            return "Online";
+                                        }
+                                    },
+                                }
+                            }],
+                            xAxes: [{
+                               type: "time",
+                                time: {
+                                    minUnit: "second",
+                                    format: 'MM/DD/YYYY HH:mm'
+
+                                }
+                            }]
+                        },
+                    }
+                });
+            };
+
+        function drawOnlinePieChart(serverData){
+            var ctx = document.getElementById("online-piechart");
+            var data = {
+                labels: serverData.platform_stats.map(function(x){return Object.keys(x)[0]}),
+                datasets: [
+                    {
+                        data: serverData.platform_stats.map(
+                        function(a){var k = Object.keys(a)[0]; return a[k]}),
+                        backgroundColor: [
+                            "#FF6384",
+                            "#36A2EB",
+                            "#FFCE56",
+                            "#84A1D1",
+                            "#7A9A37",
+                            "#634786",
+                            "#326AAC"
+                        ],
+                        hoverBackgroundColor: [
+                            "#FF6384",
+                            "#36A2EB",
+                            "#FFCE56",
+                            "#84A1D1",
+                            "#7A9A37",
+                            "#634786",
+                            "#326AAC"
+                        ]
+                    }]
+            };
+            var myDoughnutChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    title:{
+                        display: false,
+                        text: "Devices"
+                    },
+                    legend: {
+                        position: "right"
+                    }
+                }
+            });
+        }
+
+        function drawMobilePiechart(serverData){
+            var ctx = document.getElementById("mobile-piechart");
+            var data = {
+                labels: ["Mobile device","Desktop"],
+                datasets: [
+                    {
+                        data: [serverData.mobile_count,
+                            serverData.online_count - serverData.mobile_count],
+                        backgroundColor: [
+                            "#36A2EB",
+                            "#326AAC"
+                        ],
+                        hoverBackgroundColor: [
+                            "#36A2EB",
+                            "#326AAC"
+                        ]
+                    }]
+            };
+            var myDoughnutChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    legend: {
+                        position: "left"
+                    }
+                }
+            });
+        }
+
+        $(document).ready(function() {
+
+            // getting track from api
+
+            $.getJSON("{%  url 'user_track_json' user.uid %}",
+                    function(data){
+                        drawTimeline(data);
+                        drawOnlinePieChart(data);
+                        drawMobilePiechart(data);
+                    }
+            );
+            // rendering DT
+
+            $('#users-table').DataTable(
+            {
+                "paging": false
+            }
+            );
+
+            // remembering tab after page refresh
+            var active = localStorage.getItem("activeTab");
+            $("a[href='"+active+"']").tab("show");
+    });
+
+        // storing current tab to remember it later
+        window.onbeforeunload = function () {
+          var active = $("li.active>a").attr("href");
+            localStorage.setItem("activeTab", active);
+        };
+    </script>
+</body>
+</html>
